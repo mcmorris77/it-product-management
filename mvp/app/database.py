@@ -45,7 +45,7 @@ def create_tables():
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS claims (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,   
             item_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             FOREIGN KEY (item_id) REFERENCES item(id),
