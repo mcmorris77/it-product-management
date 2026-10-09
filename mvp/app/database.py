@@ -34,7 +34,7 @@ def create_tables():
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             check_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             price INTEGER NOT NULL,
