@@ -48,8 +48,8 @@ def create_tables():
             id INTEGER PRIMARY KEY AUTOINCREMENT,   
             item_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
-            FOREIGN KEY (item_id) REFERENCES item(id),
-            FOREIGN KEY (user_id) REFERENCES user(id)
+            FOREIGN KEY (item_id) REFERENCES items(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     """)
 

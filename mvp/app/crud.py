@@ -162,12 +162,59 @@ def get_user(user_id: int):
     return dict(row) if row else None
 
 def get_item(item_id: int):
-    # Возвращает позицию по id или None.
+    # Возвращает позицию по id или None
     conn = get_connections()
     cur = conn.cursor()
     cur.execute("SELECT * FROM items WHERE id = ?", (item_id,))
     row = cur.fetchone()
     conn.close()
     return dict(row) if row else None
+
+def get_check(check_id: int):
+    # Возвращает чек (без позиций) или None
+    conn = get_connections()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM checks WHERE id = ?", (check_id,))
+    row = cur.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_claim(item_id: int, user_id: int):
+    # Ищет отметку конкретного человека на конкретной позиции
+    conn = get_connections()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM claims WHERE item_id = ? AND user_id = ?",
+        (item_id, user_id)
+    )
+    row = cur.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def delete_claim(item_id: int, user_id: int):
+    # Снимает отметку человека с позиции
+    conn = get_connections()
+    cur = conn.cursor()
+    cur.execute(
+        "DELETE FROM claims WHERE item_id = ? AND item_id = ?",
+        (item_id, user_id)
+    )
+    conn.commit()
+    conn.close()
+
+def get_users_names(user_ids: list[int])->dict[int, str]:
+    # Возвращает словарь {user_id: имя} для списка id.
+    if not user_ids:
+        return {}
+    conn = get_connections()
+    cur = conn.cursor()
+    marks = ','.join("?" for _ in user_ids)
+    cur.execute(f"SELECT id, name FROM users WHERE id IN ({marks})", user_ids)
+    rows = cur.fetchall()
+    conn.close()
+    result = {}
+    for row in rows:
+        result[row["id"]] = row["name"]
+    return result
 
 
