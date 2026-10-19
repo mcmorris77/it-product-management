@@ -196,7 +196,7 @@ def delete_claim(item_id: int, user_id: int):
     conn = get_connections()
     cur = conn.cursor()
     cur.execute(
-        "DELETE FROM claims WHERE item_id = ? AND item_id = ?",
+        "DELETE FROM claims WHERE item_id = ? AND user_id = ?",
         (item_id, user_id)
     )
     conn.commit()

@@ -51,7 +51,8 @@ def get_summary(check_id: int):
     check = crud.get_check(check_id)
     if check is None:
         raise HTTPException(status_code=404, detail="Чек не найден")
-    items = crud.get_check_with_items(check_id)
+    check_with_items = crud.get_check_with_items(check_id)
+    items = check_with_items["items"]
     claims = crud.get_check_claims(check_id)
     result = calculator.calculate(items, claims)
 
@@ -78,13 +79,13 @@ def get_me(check_id: int, x_user_id: int = Header()):
     check = crud.get_check(check_id)
     if check is None:
         raise HTTPException(status_code=404, detail="Чек не найден")
-
-    items = crud.get_check_with_items(check_id)
+    check_with_items = crud.get_check_with_items(check_id)
+    items = check_with_items["items"]
     claims =  crud.get_check_claims(check_id)
     result =  calculator.calculate(items, claims)
 
     return {
-        "amount": result["totals"].get(user[id], 0),
+        "amount": result["totals"].get(user["id"], 0),
         "is_payer": check["payer_id"] == user["id"],
         "payment_info": check["payment_info"]
     }
