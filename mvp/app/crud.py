@@ -5,11 +5,11 @@ def create_user(telegram_id: int, name: str):
     conn = get_connections()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO users (telegram_id, name) VALUES (?, ?)",
+        "INSERT INTO users (telegram_id, name) VALUES (%s, %s) RETURNING id",
         (telegram_id, name)
     )
+    user_id = cur.fetchone()["id"]
     conn.commit()
-    user_id=cur.lastrowid
     conn.close()
     return user_id
 
@@ -17,7 +17,7 @@ def get_user_by_telegram_id(telegram_id: int):
     # находит пользователя по его Telegram ID, или None если его нет
     conn = get_connections()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE telegram_id = ?", (telegram_id,))
+    cur.execute("SELECT * FROM users WHERE telegram_id = %s", (telegram_id,))
     row = cur.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -27,15 +27,15 @@ def create_check_with_items(payer_id: int, title: str, payment_info: str, items:
     conn = get_connections()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO checks (payer_id, title, payment_info) VALUES (?, ?, ?)",
+        "INSERT INTO checks (payer_id, title, payment_info) VALUES (%s, %s, %s) RETURNING id",
         (payer_id, title, payment_info)
     )
-    check_id = cur.lastrowid
+    check_id = cur.fetchone()["id"]
 
 
     for item in items:
         cur.execute(
-            "INSERT INTO items (check_id, name, price, type) VALUES (?, ?, ?, ?)",
+            "INSERT INTO items (check_id, name, price, type) VALUES (%s, %s, %s, %s)",
             (check_id, item.name, item.price, item.type)
         )
 
@@ -50,14 +50,14 @@ def get_check_with_items(check_id: int):
     conn = get_connections()
     cur = conn.cursor()
 
-    cur.execute("SELECT * FROM checks WHERE id = ?", (check_id,))
+    cur.execute("SELECT * FROM checks WHERE id = %s", (check_id,))
     check_row = cur.fetchone()
 
     if check_row is None:
         conn.close()
         return None
 
-    cur.execute("SELECT * FROM items WHERE check_id = ?", (check_id,))
+    cur.execute("SELECT * FROM items WHERE check_id = %s", (check_id,))
     item_rows = cur.fetchall()
 
     conn.close()
@@ -69,7 +69,7 @@ def close_check(check_id: int):
     conn = get_connections()
     cur = conn.cursor()
 
-    cur.execute("UPDATE checks SET status = 'closed' WHERE id = ?", (check_id,))
+    cur.execute("UPDATE checks SET status = 'closed' WHERE id = %s", (check_id,))
     conn.commit()
     conn.close()
 
@@ -82,13 +82,13 @@ def update_item(item_id: int, name: str = None, price: int = None, item_type: st
     fields = []
     values = []
     if name is not None:
-        fields.append("name = ?")
+        fields.append("name = %s")
         values.append(name)
     if price is not None:
-        fields.append("price = ?")
+        fields.append("price = %s")
         values.append(price)
     if item_type is not None:
-        fields.append("type = ?")
+        fields.append("type = %s")
         values.append(item_type)
 
 
@@ -97,7 +97,7 @@ def update_item(item_id: int, name: str = None, price: int = None, item_type: st
         return
 
     values.append(item_id)
-    query = f"UPDATE items SET {', '.join(fields)} WHERE id = ?"
+    query = f"UPDATE items SET {', '.join(fields)} WHERE id = %s"
     cur.execute(query, values)
 
     conn.commit()
@@ -109,8 +109,8 @@ def delete_item(item_id: int):
     conn = get_connections()
     cur = conn.cursor()
 
-    cur.execute("DELETE FROM claims WHERE item_id = ?", (item_id,))
-    cur.execute("DELETE FROM items WHERE id = ?", (item_id,))
+    cur.execute("DELETE FROM claims WHERE item_id = %s", (item_id,))
+    cur.execute("DELETE FROM items WHERE id = %s", (item_id,))
     conn.commit()
     conn.close()
 
@@ -120,11 +120,11 @@ def create_claims(item_id: int, user_id: int):
     conn = get_connections()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO claims (item_id, user_id) VALUES (?, ?)",
+        "INSERT INTO claims (item_id, user_id) VALUES (%s, %s)",
         (item_id, user_id)
     )
+    claim_id = cur.fetchone()["id"]
     conn.commit()
-    claim_id = cur.lastrowid
     conn.close()
     return claim_id
 
@@ -133,7 +133,7 @@ def get_item_claims(item_id: int):
     # все отметки по конкретной позиции
     conn = get_connections()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM claims WHERE item_id = ?", (item_id, ))
+    cur.execute("SELECT * FROM claims WHERE item_id = %s", (item_id, ))
     rows = cur.fetchall()
     conn.close()
     return  [dict(row) for row in rows]
@@ -146,7 +146,7 @@ def get_check_claims(check_id: int):
     cur.execute("""
         SELECT claims.* FROM claims 
         JOIN items ON claims.item_id = items.id
-        WHERE items.check_id = ?
+        WHERE items.check_id = %s
     """, (check_id, ))
     rows = cur.fetchall()
     conn.close()
@@ -156,7 +156,7 @@ def get_user(user_id: int):
     # Возвращает пользователя по внутреннему id или None
     conn = get_connections()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
     row = cur.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -165,7 +165,7 @@ def get_item(item_id: int):
     # Возвращает позицию по id или None
     conn = get_connections()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM items WHERE id = ?", (item_id,))
+    cur.execute("SELECT * FROM items WHERE id = %s", (item_id,))
     row = cur.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -174,7 +174,7 @@ def get_check(check_id: int):
     # Возвращает чек (без позиций) или None
     conn = get_connections()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM checks WHERE id = ?", (check_id,))
+    cur.execute("SELECT * FROM checks WHERE id = %s", (check_id,))
     row = cur.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -184,7 +184,7 @@ def get_claim(item_id: int, user_id: int):
     conn = get_connections()
     cur = conn.cursor()
     cur.execute(
-        "SELECT * FROM claims WHERE item_id = ? AND user_id = ?",
+        "SELECT * FROM claims WHERE item_id = %s AND user_id = %s",
         (item_id, user_id)
     )
     row = cur.fetchone()
@@ -196,7 +196,7 @@ def delete_claim(item_id: int, user_id: int):
     conn = get_connections()
     cur = conn.cursor()
     cur.execute(
-        "DELETE FROM claims WHERE item_id = ? AND user_id = ?",
+        "DELETE FROM claims WHERE item_id = %s AND user_id = %s",
         (item_id, user_id)
     )
     conn.commit()
@@ -208,8 +208,7 @@ def get_users_names(user_ids: list[int])->dict[int, str]:
         return {}
     conn = get_connections()
     cur = conn.cursor()
-    marks = ','.join("?" for _ in user_ids)
-    cur.execute(f"SELECT id, name FROM users WHERE id IN ({marks})", user_ids)
+    cur.execute("SELECT id, name FROM users WHERE id = ANY(%s)", (user_ids,))
     rows = cur.fetchall()
     conn.close()
     result = {}

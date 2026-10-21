@@ -1,12 +1,14 @@
-import sqlite3
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
 
-DB_PATH = "split_bill.db"
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_connections():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    # открывает соединение, строки результата приходят словарями
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 def create_tables():
     conn = get_connections()
@@ -14,42 +16,38 @@ def create_tables():
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            telegram_id INTEGER UNIQUE NOT NULL,
+            id SERIAL PRIMARY KEY,
+            telegram_id BIGINT UNIQUE NOT NULL,
             name TEXT NOT NULL
         )
     """)
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS checks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            payer_id INTEGER NOT NULL,
+            id SERIAL PRIMARY KEY,
+            payer_id INTEGER NOT NULL REFERENCES users(id),
             title TEXT,
             payment_info TEXT,
             status TEXT DEFAULT 'open',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (payer_id) REFERENCES users(id)
+            created_at TIMESTAMP DEFAULT NOW()
         )
     """)
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            check_id INTEGER NOT NULL,
+            id SERIAL PRIMARY KEY,
+            check_id INTEGER NOT NULL REFERENCES checks(id),
             name TEXT NOT NULL,
             price INTEGER NOT NULL,
-            type TEXT NOT NULL, 
-            FOREIGN KEY (check_id) REFERENCES checks(id)
+            type TEXT NOT NULL
         )
     """)
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS claims (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,   
-            item_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            FOREIGN KEY (item_id) REFERENCES items(id),
-            FOREIGN KEY (user_id) REFERENCES users(id)
+            id SERIAL PRIMARY KEY,   
+            item_id INTEGER NOT NULL REFERENCES items(id),
+            user_id INTEGER NOT NULL REFERENCES users(id)
         )
     """)
 
