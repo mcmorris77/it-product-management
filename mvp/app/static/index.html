@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Check splitter</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: var(--tg-theme-bg-color, #ffffff);
+      color: var(--tg-theme-text-color, #000000);
+    }
+    h1 { font-size: 22px; margin: 0 0 12px; }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #ccc;
+    }
+    .item small { color: #888; }
+    button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      background: var(--tg-theme-button-color, #2481cc);
+      color: var(--tg-theme-button-text-color, #ffffff);
+      font-size: 15px;
+    }
+    button:disabled { opacity: 0.4; }
+    #message { color: #d33; margin: 8px 0; }
+    #summary { margin-top: 20px; font-size: 18px; }
+    #pay { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1 id="title">Загрузка...</h1>
+  <div id="message"></div>
+  <div id="items"></div>
+  <div id="summary"></div>
+  <div id="pay"></div>
+
+  <script>
+    // Telegram может не загрузиться, поэтому проверяем, что он есть
+    const tg = window.Telegram ? window.Telegram.WebApp : null;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    const params = new URLSearchParams(location.search);
+
+    // номер чека: из ссылки-приглашения (check_5) или из адреса ?check=5 для проверки в браузере
+    const startParam = tg ? (tg.initDataUnsafe.start_param || "") : "";
+    const checkId = startParam.startsWith("check_") ? startParam.slice(6) : params.get("check");
+
+    // подпись от Telegram; в браузере для проверки берём из адреса ?auth=
+    const initData = (tg && tg.initData) || params.get("auth") || "";
+
+    function rub(kopecks) {
+      return (kopecks / 100).toLocaleString("ru-RU", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " ₽";
+    }
+
+    function setMessage(text) {
+      document.getElementById("message").textContent = text;
+    }
+
+    async function api(method, path) {
+      const response = await fetch(path, {
+        method: method,
+        headers: { "Authorization": "tma " + initData },
+      });
+      if (!response.ok) {
+        let text = "Ошибка " + response.status;
+        try {
+          const data = await response.json();
+          if (typeof data.detail === "string") text = data.detail;
+        } catch (e) {}
+        throw new Error(text);
+      }
+      return response.json();
+    }
+
+    async function toggle(item) {
+      setMessage("");
+      try {
+        if (item.mine) {
+          await api("DELETE", "/items/" + item.id + "/claim");
+        } else {
+          await api("POST", "/items/" + item.id + "/claim");
+        }
+      } catch (e) {
+        setMessage(e.message);
+      }
+      await load();
+    }
+
+    function show(state, me) {
+      document.getElementById("title").textContent = state.title || "Чек №" + state.id;
+
+      const list = document.getElementById("items");
+      list.innerHTML = "";
+
+      for (const item of state.items) {
+        const row = document.createElement("div");
+        row.className = "item";
+
+        const info = document.createElement("div");
+        const name = document.createElement("div");
+        name.textContent = item.name + " — " + rub(item.price);
+        const note = document.createElement("small");
+        note.textContent = (item.type === "shared" ? "в стол" : "на одного") +
+          ", отметились: " + item.claims_count;
+        info.appendChild(name);
+        info.appendChild(note);
+        row.appendChild(info);
+
+        if (state.status !== "closed") {
+          const button = document.createElement("button");
+          if (item.mine) {
+            button.textContent = "Снять";
+          } else if (item.type === "single" && item.claims_count > 0) {
+            button.textContent = "Занято";
+            button.disabled = true;
+          } else {
+            button.textContent = "Я ел";
+          }
+          button.onclick = () => toggle(item);
+          row.appendChild(button);
+        }
+
+        list.appendChild(row);
+      }
+
+      const summary = document.getElementById("summary");
+      const pay = document.getElementById("pay");
+      pay.innerHTML = "";
+
+      if (state.status === "closed") {
+        summary.textContent = "Чек закрыт. Ваша сумма: " + rub(me.amount);
+      } else {
+        summary.textContent = "Вы должны: " + rub(me.amount);
+      }
+
+      if (me.is_payer) {
+        pay.textContent = "Вы оплатили этот счёт, переводить не нужно.";
+      } else if (me.payment_info && me.amount > 0) {
+        pay.textContent = "Переведите по реквизитам: " + me.payment_info + " ";
+        const copy = document.createElement("button");
+        copy.textContent = "Копировать";
+        copy.onclick = () => navigator.clipboard.writeText(me.payment_info);
+        pay.appendChild(copy);
+      }
+    }
+
+    async function load() {
+      if (!checkId) {
+        setMessage("Не указан номер чека");
+        return;
+      }
+      try {
+        const state = await api("GET", "/checks/" + checkId + "/state");
+        const me = await api("GET", "/checks/" + checkId + "/me");
+        show(state, me);
+      } catch (e) {
+        setMessage(e.message);
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

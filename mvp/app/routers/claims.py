@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from .. import calculator, crud, schemas
-from .. auth import get_current_user
+from ..auth import get_current_user
 
 router = APIRouter(tags=["claims"])
 
@@ -82,3 +82,25 @@ def get_me(check_id: int, user = Depends(get_current_user)):
         "payment_info": check["payment_info"]
     }
 
+@router.get("/checks/{check_id}/state")
+def get_state(check_id: int, user: dict = Depends(get_current_user)):
+    check = crud.get_check(check_id)
+    if check is None:
+        raise HTTPException(status_code=404, detail="Чек не найден")
+    items = crud.get_check_items(check_id)
+    claims = crud.get_check_claims(check_id)
+
+    result = []
+    for item in items:
+        item_claims = [c for c in claims if c["item_id"] == item["id"]]
+        item["claims_count"] = len(item_claims)
+        item["mine"] = any(c["user_id"] == user["id"] for c in item_claims)
+        result.append(item)
+
+    return {
+        "id": check["id"],
+        "title": check["title"],
+        "status": check["status"],
+        "is_payer": check["payer_id"] == user["id"],
+        "items": result,
+    }

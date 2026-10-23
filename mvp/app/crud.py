@@ -43,7 +43,14 @@ def create_check_with_items(payer_id: int, title: str, payment_info: str, items:
     conn.close()
     return check_id
 
-
+def get_check_items(check_id: int):
+    # все позиции чека списком
+    conn = get_connections()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM items WHERE check_id = %s", (check_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 def get_check_with_items(check_id: int):
     # возвращает чек вместе со списком его позиций, или None если чека нет
@@ -120,7 +127,7 @@ def create_claims(item_id: int, user_id: int):
     conn = get_connections()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO claims (item_id, user_id) VALUES (%s, %s)",
+        "INSERT INTO claims (item_id, user_id) VALUES (%s, %s) RETURNING id",
         (item_id, user_id)
     )
     claim_id = cur.fetchone()["id"]
