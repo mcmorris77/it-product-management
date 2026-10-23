@@ -1,17 +1,11 @@
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from .. import calculator, crud, schemas
+from .. auth import get_current_user
 
 router = APIRouter(tags=["claims"])
 
-def get_current_user(x_user_id: int) -> dict:
-    user = crud.get_user(x_user_id)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Пользователь не найден")
-    return user
-
 @router.post("/items/{item_id}/claim")
-def claim_item(item_id: int, x_user_id:int = Header()):
-    user = get_current_user(x_user_id)
+def claim_item(item_id: int, user: dict = Depends(get_current_user)):
 
     item = crud.get_item(item_id)
     if item is None:
@@ -32,8 +26,7 @@ def claim_item(item_id: int, x_user_id:int = Header()):
     return {"status": "claimed"}
 
 @router.delete("/items/{item_id}/claim")
-def unclaim_item(item_id: int, x_user_id: int = Header()):
-    user = get_current_user(x_user_id)
+def unclaim_item(item_id: int, user: dict = Depends(get_current_user)):
 
     item = crud.get_item(item_id)
     if item is None:
@@ -73,8 +66,7 @@ def get_summary(check_id: int):
     }
 
 @router.get("/checks/{check_id}/me", response_model=schemas.MeOut)
-def get_me(check_id: int, x_user_id: int = Header()):
-    user = get_current_user(x_user_id)
+def get_me(check_id: int, user = Depends(get_current_user)):
 
     check = crud.get_check(check_id)
     if check is None:

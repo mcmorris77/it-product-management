@@ -7,7 +7,6 @@ class ItemCreate(BaseModel):
     type: str
 
 class CheckCreate(BaseModel):
-    payer_id: int
     title: Optional[str] = None
     payment_info: Optional[str] = None
     items: list[ItemCreate]
