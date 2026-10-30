@@ -14,6 +14,10 @@ app.include_router(claims.router)
 def health():
     return {"status": "ok"}
 
+@app.get("/")
+def root():
+    return FileResponse(Path(__file__).parent / "static" / "index.html")
+
 @app.get("/app")
 def mini_app():
     return FileResponse(Path(__file__).parent / "static" / "index.html")
