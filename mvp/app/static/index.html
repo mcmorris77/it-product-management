@@ -2,177 +2,301 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Check splitter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f5f7">
+  <title>Делим чек</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
+    :root {
+      color-scheme: light dark;
+      --bg: var(--tg-theme-bg-color, #f4f5f7);
+      --surface: var(--tg-theme-secondary-bg-color, #fff);
+      --text: var(--tg-theme-text-color, #17191c);
+      --muted: var(--tg-theme-hint-color, #777e87);
+      --line: color-mix(in srgb, var(--text) 10%, transparent);
+      --accent: var(--tg-theme-button-color, #2787f5);
+      --accent-text: var(--tg-theme-button-text-color, #fff);
+      --danger: #c83e4d;
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
     body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 16px;
-      background: var(--tg-theme-bg-color, #ffffff);
-      color: var(--tg-theme-text-color, #000000);
+      margin: 0; padding: 0 16px calc(24px + env(safe-area-inset-bottom));
+      background: var(--bg); color: var(--text);
+      font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    h1 { font-size: 22px; margin: 0 0 12px; }
-    .item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid #ccc;
-    }
-    .item small { color: #888; }
-    button {
-      padding: 8px 14px;
-      border: none;
-      border-radius: 8px;
-      background: var(--tg-theme-button-color, #2481cc);
-      color: var(--tg-theme-button-text-color, #ffffff);
-      font-size: 15px;
-    }
-    button:disabled { opacity: 0.4; }
-    #message { color: #d33; margin: 8px 0; }
-    #summary { margin-top: 20px; font-size: 18px; }
-    #pay { margin-top: 8px; }
+    main { max-width: 560px; margin: 0 auto; padding-top: max(18px, env(safe-area-inset-top)); }
+    header { margin: 8px 2px 18px; }
+    .eyebrow { color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+    h1 { margin: 4px 0 0; font-size: 26px; line-height: 1.2; overflow-wrap: anywhere; }
+    .status { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--muted); font-size: 13px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #28a46a; }
+    .dot.closed { background: var(--muted); }
+    .card { background: var(--surface); border-radius: var(--radius); padding: 16px; margin: 12px 0; }
+    .section-title { margin: 0 0 8px; font-size: 16px; font-weight: 700; }
+    .helper { margin: 0; color: var(--muted); font-size: 14px; }
+    .item { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .item:last-child { border-bottom: 0; padding-bottom: 0; }
+    .item:first-child { padding-top: 8px; }
+    .item-info { min-width: 0; flex: 1; }
+    .item-name { font-weight: 600; overflow-wrap: anywhere; }
+    .item-meta { margin-top: 3px; color: var(--muted); font-size: 13px; }
+    .price { white-space: nowrap; font-weight: 650; font-variant-numeric: tabular-nums; }
+    button { border: 0; border-radius: 12px; min-height: 42px; padding: 0 14px; font: inherit; font-weight: 650; cursor: pointer; }
+    button:disabled { opacity: .48; cursor: default; }
+    .primary { color: var(--accent-text); background: var(--accent); }
+    .secondary { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }
+    .small-button { min-height: 36px; padding: 0 12px; font-size: 14px; }
+    .amount-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .amount { font-size: 24px; font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .payment { overflow-wrap: anywhere; }
+    .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .actions button { flex: 1; }
+    .person { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+    .person:last-child { border-bottom: 0; }
+    .person span:last-child { white-space: nowrap; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .notice { border-radius: 12px; background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); padding: 11px 13px; margin: 12px 0; font-size: 14px; }
+    .notice[hidden], [hidden] { display: none !important; }
+    .empty { padding: 18px 0 4px; color: var(--muted); text-align: center; }
+    .footer { display: flex; justify-content: center; margin-top: 16px; }
+    .link-button { color: var(--accent); background: transparent; min-height: 38px; }
+    @media (prefers-color-scheme: dark) { :root { --danger: #ff737d; } }
   </style>
 </head>
 <body>
-  <h1 id="title">Загрузка...</h1>
-  <div id="message"></div>
-  <div id="items"></div>
-  <div id="summary"></div>
-  <div id="pay"></div>
+  <main>
+    <header>
+      <div class="eyebrow">ДЕЛИМ ЧЕК</div>
+      <h1 id="title">Загружаем чек…</h1>
+      <div class="status"><span id="status-dot" class="dot"></span><span id="status-text">Обновляем данные</span></div>
+    </header>
+
+    <div id="message" class="notice" role="alert" hidden></div>
+    <section class="card">
+      <h2 class="section-title">Блюда</h2>
+      <p id="items-help" class="helper">Отметь блюда, которые ты ел.</p>
+      <div id="items"></div>
+    </section>
+
+    <section class="card amount-card" aria-live="polite">
+      <div><div class="eyebrow" id="amount-label">ТВОЯ СУММА</div><div class="helper" id="amount-note">Обновляется после отметок</div></div>
+      <div class="amount" id="amount">—</div>
+    </section>
+
+    <section id="payment-card" class="card" hidden>
+      <h2 class="section-title">Перевод плательщику</h2>
+      <p id="payment-info" class="helper payment"></p>
+      <div class="actions"><button id="copy-payment" class="secondary">Скопировать реквизиты</button></div>
+    </section>
+
+    <section id="payer-card" class="card" hidden>
+      <h2 class="section-title">Сводка по чеку</h2>
+      <div id="totals"></div>
+      <div id="unclaimed" class="empty" hidden>Все блюда распределены</div>
+      <div class="actions"><button id="close-check" class="secondary">Закрыть чек</button></div>
+    </section>
+
+    <div class="footer"><button id="refresh" class="link-button">Обновить</button></div>
+  </main>
 
   <script>
-    // Telegram может не загрузиться, поэтому проверяем, что он есть
-    const tg = window.Telegram ? window.Telegram.WebApp : null;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-    }
+    const tg = window.Telegram?.WebApp || null;
+    if (tg) { tg.ready(); tg.expand(); }
 
     const params = new URLSearchParams(location.search);
-
-    // номер чека: из ссылки-приглашения (check_5) или из адреса ?check=5 для проверки в браузере
-    const startParam = tg ? (tg.initDataUnsafe.start_param || "") : "";
+    const startParam = tg?.initDataUnsafe?.start_param || "";
     const checkId = startParam.startsWith("check_") ? startParam.slice(6) : params.get("check");
+    const initData = tg?.initData || params.get("auth") || "";
+    let currentState = null;
+    let currentMe = null;
+    let busy = false;
 
-    // подпись от Telegram; в браузере для проверки берём из адреса ?auth=
-    const initData = (tg && tg.initData) || params.get("auth") || "";
+    const $ = (id) => document.getElementById(id);
+    const rub = (kopecks) => (kopecks / 100).toLocaleString("ru-RU", {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    }) + " ₽";
 
-    function rub(kopecks) {
-      return (kopecks / 100).toLocaleString("ru-RU", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + " ₽";
-    }
-
-    function setMessage(text) {
-      document.getElementById("message").textContent = text;
+    function setMessage(text = "") {
+      $("message").textContent = text;
+      $("message").hidden = !text;
     }
 
     async function api(method, path) {
       const response = await fetch(path, {
-        method: method,
-        headers: { "Authorization": "tma " + initData },
+        method,
+        headers: { Authorization: "tma " + initData }
       });
       if (!response.ok) {
-        let text = "Ошибка " + response.status;
+        let message = "Ошибка " + response.status;
         try {
-          const data = await response.json();
-          if (typeof data.detail === "string") text = data.detail;
-        } catch (e) {}
-        throw new Error(text);
+          const body = await response.json();
+          if (typeof body.detail === "string") message = body.detail;
+        } catch (_) {}
+        throw new Error(message);
       }
-      return response.json();
+      return response.status === 204 ? null : response.json();
     }
 
-    async function toggle(item) {
-      setMessage("");
-      try {
-        if (item.mine) {
-          await api("DELETE", "/items/" + item.id + "/claim");
-        } else {
-          await api("POST", "/items/" + item.id + "/claim");
-        }
-      } catch (e) {
-        setMessage(e.message);
-      }
-      await load();
+    function button(label, className, onClick, disabled = false) {
+      const el = document.createElement("button");
+      el.textContent = label;
+      el.className = className;
+      el.disabled = disabled;
+      el.addEventListener("click", onClick);
+      return el;
     }
 
-    function show(state, me) {
-      document.getElementById("title").textContent = state.title || "Чек №" + state.id;
-
-      const list = document.getElementById("items");
-      list.innerHTML = "";
+    function renderItems(state) {
+      const list = $("items");
+      list.replaceChildren();
+      if (!state.items.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "В этом чеке пока нет блюд.";
+        list.append(empty);
+        return;
+      }
 
       for (const item of state.items) {
         const row = document.createElement("div");
         row.className = "item";
-
         const info = document.createElement("div");
+        info.className = "item-info";
         const name = document.createElement("div");
-        name.textContent = item.name + " — " + rub(item.price);
-        const note = document.createElement("small");
-        note.textContent = (item.type === "shared" ? "в стол" : "на одного") +
-          ", отметились: " + item.claims_count;
-        info.appendChild(name);
-        info.appendChild(note);
-        row.appendChild(info);
+        name.className = "item-name";
+        name.textContent = item.name;
+        const meta = document.createElement("div");
+        meta.className = "item-meta";
+        meta.textContent = item.type === "shared"
+          ? `Общее · ${item.claims_count} отметок`
+          : item.claims_count ? "Индивидуальное · занято" : "Индивидуальное";
+        info.append(name, meta);
+        const price = document.createElement("div");
+        price.className = "price";
+        price.textContent = rub(item.price);
+        row.append(info, price);
 
         if (state.status !== "closed") {
-          const button = document.createElement("button");
-          if (item.mine) {
-            button.textContent = "Снять";
-          } else if (item.type === "single" && item.claims_count > 0) {
-            button.textContent = "Занято";
-            button.disabled = true;
-          } else {
-            button.textContent = "Я ел";
-          }
-          button.onclick = () => toggle(item);
-          row.appendChild(button);
+          const occupied = item.type === "single" && item.claims_count > 0 && !item.mine;
+          const action = item.mine ? "Снять" : occupied ? "Занято" : "Я ел";
+          row.append(button(action, item.mine ? "secondary small-button" : "primary small-button",
+            () => toggle(item), occupied || busy));
+        } else if (item.mine) {
+          const mine = document.createElement("span");
+          mine.className = "item-meta";
+          mine.textContent = "Моё";
+          row.append(mine);
         }
-
-        list.appendChild(row);
+        list.append(row);
       }
+    }
 
-      const summary = document.getElementById("summary");
-      const pay = document.getElementById("pay");
-      pay.innerHTML = "";
-
-      if (state.status === "closed") {
-        summary.textContent = "Чек закрыт. Ваша сумма: " + rub(me.amount);
-      } else {
-        summary.textContent = "Вы должны: " + rub(me.amount);
+    function renderPayer(summary) {
+      const list = $("totals");
+      list.replaceChildren();
+      for (const person of summary.totals) {
+        const row = document.createElement("div");
+        row.className = "person";
+        const name = document.createElement("span");
+        name.textContent = person.name;
+        const amount = document.createElement("span");
+        amount.textContent = rub(person.amount);
+        row.append(name, amount);
+        list.append(row);
       }
-
-      if (me.is_payer) {
-        pay.textContent = "Вы оплатили этот счёт, переводить не нужно.";
-      } else if (me.payment_info && me.amount > 0) {
-        pay.textContent = "Переведите по реквизитам: " + me.payment_info + " ";
-        const copy = document.createElement("button");
-        copy.textContent = "Копировать";
-        copy.onclick = () => navigator.clipboard.writeText(me.payment_info);
-        pay.appendChild(copy);
+      $("unclaimed").hidden = summary.unclaimed_items.length === 0;
+      if (summary.unclaimed_items.length) {
+        $("unclaimed").textContent = `Никто не взял: ${summary.unclaimed_items.map(item => item.name).join(", ")}`;
       }
+    }
+
+    function render(state, me, summary) {
+      currentState = state;
+      currentMe = me;
+      $("title").textContent = state.title || `Чек №${state.id}`;
+      const closed = state.status === "closed";
+      $("status-text").textContent = closed ? "Чек закрыт" : "Чек открыт";
+      $("status-dot").classList.toggle("closed", closed);
+      $("items-help").textContent = closed ? "Отметки по чеку закрыты." : "Отметь блюда, которые ты ел.";
+      $("amount").textContent = rub(me.amount);
+      $("amount-label").textContent = me.is_payer ? "ТЫ ОПЛАТИЛ" : closed ? "ТВОЯ ДОЛЯ" : "ТВОЯ СУММА";
+      $("amount-note").textContent = closed ? "Итоговая сумма по твоим отметкам" : "Пересчитывается после каждой отметки";
+
+      const showPayment = !me.is_payer && !!me.payment_info && me.amount > 0;
+      $("payment-card").hidden = !showPayment;
+      $("payment-info").textContent = me.payment_info || "";
+      $("payer-card").hidden = !me.is_payer;
+      $("close-check").hidden = closed;
+      $("close-check").disabled = busy;
+      if (me.is_payer && summary) renderPayer(summary);
+      renderItems(state);
     }
 
     async function load() {
       if (!checkId) {
-        setMessage("Не указан номер чека");
+        $("title").textContent = "Чек не найден";
+        setMessage("Открой приложение по ссылке на чек: в ссылке должен быть указан номер чека.");
         return;
       }
+      if (!/^\d+$/.test(checkId)) {
+        setMessage("В ссылке указан некорректный номер чека.");
+        return;
+      }
+      setMessage("");
       try {
-        const state = await api("GET", "/checks/" + checkId + "/state");
-        const me = await api("GET", "/checks/" + checkId + "/me");
-        show(state, me);
-      } catch (e) {
-        setMessage(e.message);
+        const [state, me] = await Promise.all([
+          api("GET", `/checks/${checkId}/state`),
+          api("GET", `/checks/${checkId}/me`)
+        ]);
+        const summary = me.is_payer ? await api("GET", `/checks/${checkId}/summary`) : null;
+        render(state, me, summary);
+      } catch (error) {
+        setMessage(error.message || "Не удалось загрузить чек. Попробуй обновить экран.");
       }
     }
 
+    async function toggle(item) {
+      if (busy) return;
+      busy = true;
+      setMessage("");
+      if (currentState && currentMe) render(currentState, currentMe, null);
+      try {
+        await api(item.mine ? "DELETE" : "POST", `/items/${item.id}/claim`);
+      } catch (error) {
+        setMessage(error.message);
+      } finally {
+        busy = false;
+        await load();
+      }
+    }
+
+    $("copy-payment").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(currentMe.payment_info);
+        $("copy-payment").textContent = "Скопировано";
+        setTimeout(() => { $("copy-payment").textContent = "Скопировать реквизиты"; }, 1800);
+      } catch (_) {
+        setMessage("Не получилось скопировать. Выдели и скопируй реквизиты вручную.");
+      }
+    });
+
+    $("close-check").addEventListener("click", async () => {
+      if (busy || !currentState || currentState.status === "closed") return;
+      busy = true;
+      $("close-check").disabled = true;
+      setMessage("");
+      try {
+        await api("POST", `/checks/${checkId}/close`);
+        await load();
+      } catch (error) {
+        setMessage(error.message);
+      } finally {
+        busy = false;
+        if (currentState) render(currentState, currentMe, null);
+      }
+    });
+
+    $("refresh").addEventListener("click", load);
     load();
   </script>
 </body>
