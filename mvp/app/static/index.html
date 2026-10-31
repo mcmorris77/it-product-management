@@ -135,7 +135,10 @@
       <h2 class="section-title">Сводка по чеку</h2>
       <div id="totals"></div>
       <div id="unclaimed" class="empty" hidden>Все блюда распределены</div>
-      <div class="actions"><button id="close-check" class="secondary">Закрыть чек</button></div>
+      <div class="actions">
+        <button id="share-check" class="primary">Поделиться чеком</button>
+        <button id="close-check" class="secondary">Закрыть чек</button>
+      </div>
     </section>
 
     <div class="footer"><button id="refresh" class="link-button">Обновить</button></div>
@@ -324,6 +327,23 @@
         setTimeout(() => { $("copy-payment").textContent = "Скопировать реквизиты"; }, 1800);
       } catch (_) {
         setMessage("Не получилось скопировать. Выдели и скопируй реквизиты вручную.");
+      }
+    });
+
+    $("share-check").addEventListener("click", async () => {
+      const checkLink = `https://t.me/checkspliter_bot/checkspliter?startapp=check_${checkId}`;
+      const shareLink = `https://t.me/share/url?url=${encodeURIComponent(checkLink)}&text=${encodeURIComponent("Присоединяйся к делению чека")}`;
+
+      if (tg?.openTelegramLink) {
+        tg.openTelegramLink(shareLink);
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(checkLink);
+        setMessage("Ссылка на чек скопирована. Отправь её друзьям в Telegram.");
+      } catch (_) {
+        setMessage(`Ссылка на чек: ${checkLink}`);
       }
     });
 
