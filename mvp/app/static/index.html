@@ -60,11 +60,53 @@
     .empty { padding: 18px 0 4px; color: var(--muted); text-align: center; }
     .footer { display: flex; justify-content: center; margin-top: 16px; }
     .link-button { color: var(--accent); background: transparent; min-height: 38px; }
+    .field { display: block; margin: 14px 0; }
+    .field-label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 650; }
+    .field-input, .field-select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--text); font: inherit; }
+    .item-form-row { padding: 14px; margin: 10px 0; }
+    .item-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 10px; }
+    .item-form-row .field { margin: 0; }
+    .item-form-row .field-label { font-size: 13px; }
+    .item-form-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+    .form-actions { display: grid; gap: 10px; margin-top: 16px; }
     @media (prefers-color-scheme: dark) { :root { --danger: #ff737d; } }
   </style>
 </head>
 <body>
-  <main>
+  <main id="create-view" hidden>
+    <header>
+      <div class="eyebrow">ДЕЛИМ ЧЕК</div>
+      <h1>Новый чек</h1>
+      <p class="helper" style="margin-top: 8px">Добавь позиции — участники отметят, что они заказывали.</p>
+    </header>
+    <div id="create-message" class="notice" role="alert" hidden></div>
+    <form id="check-form">
+      <section class="card">
+        <h2 class="section-title">О чеке</h2>
+        <label class="field">
+          <span class="field-label">Название <span class="helper">необязательно</span></span>
+          <input id="check-title" class="field-input" type="text" maxlength="120" placeholder="Например, Ужин в пятницу">
+        </label>
+        <label class="field">
+          <span class="field-label">Реквизиты для перевода <span class="helper">необязательно</span></span>
+          <input id="check-payment" class="field-input" type="text" maxlength="300" placeholder="Телефон или номер карты">
+        </label>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Позиции</h2>
+        <p class="helper">Укажи цену в рублях. Например: 350 или 350,50.</p>
+        <div id="new-items"></div>
+        <button id="add-item" class="secondary" type="button" style="width: 100%; margin-top: 12px">＋ Добавить позицию</button>
+      </section>
+
+      <div class="form-actions">
+        <button id="create-submit" class="primary" type="submit">Создать чек</button>
+      </div>
+    </form>
+  </main>
+
+  <main id="check-view" hidden>
     <header>
       <div class="eyebrow">ДЕЛИМ ЧЕК</div>
       <h1 id="title">Загружаем чек…</h1>
@@ -105,7 +147,7 @@
 
     const params = new URLSearchParams(location.search);
     const startParam = tg?.initDataUnsafe?.start_param || "";
-    const checkId = startParam.startsWith("check_") ? startParam.slice(6) : params.get("check");
+    let checkId = startParam.startsWith("check_") ? startParam.slice(6) : params.get("check");
     const initData = tg?.initData || params.get("auth") || "";
     let currentState = null;
     let currentMe = null;
@@ -121,10 +163,13 @@
       $("message").hidden = !text;
     }
 
-    async function api(method, path) {
+    async function api(method, path, body = undefined) {
+      const headers = { Authorization: "tma " + initData };
+      if (body !== undefined) headers["Content-Type"] = "application/json";
       const response = await fetch(path, {
         method,
-        headers: { Authorization: "tma " + initData }
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body)
       });
       if (!response.ok) {
         let message = "Ошибка " + response.status;
@@ -234,10 +279,12 @@
 
     async function load() {
       if (!checkId) {
-        $("title").textContent = "Чек не найден";
-        setMessage("Открой приложение по ссылке на чек: в ссылке должен быть указан номер чека.");
+        $("create-view").hidden = false;
+        $("check-view").hidden = true;
         return;
       }
+      $("create-view").hidden = true;
+      $("check-view").hidden = false;
       if (!/^\d+$/.test(checkId)) {
         setMessage("В ссылке указан некорректный номер чека.");
         return;
@@ -297,6 +344,147 @@
     });
 
     $("refresh").addEventListener("click", load);
+
+    let itemRowCount = 0;
+    function addItemRow() {
+      const row = document.createElement("div");
+      row.className = "card item-form-row";
+      row.dataset.itemRow = String(itemRowCount++);
+
+      const grid = document.createElement("div");
+      grid.className = "item-form-grid";
+
+      const nameField = document.createElement("label");
+      nameField.className = "field";
+      const nameLabel = document.createElement("span");
+      nameLabel.className = "field-label";
+      nameLabel.textContent = "Название блюда";
+      const nameInput = document.createElement("input");
+      nameInput.className = "field-input item-name-input";
+      nameInput.type = "text";
+      nameInput.required = true;
+      nameInput.maxLength = 120;
+      nameInput.placeholder = "Например, Пицца";
+      nameField.append(nameLabel, nameInput);
+
+      const priceField = document.createElement("label");
+      priceField.className = "field";
+      const priceLabel = document.createElement("span");
+      priceLabel.className = "field-label";
+      priceLabel.textContent = "Цена, ₽";
+      const priceInput = document.createElement("input");
+      priceInput.className = "field-input item-price-input";
+      priceInput.type = "text";
+      priceInput.inputMode = "decimal";
+      priceInput.required = true;
+      priceInput.placeholder = "0,00";
+      priceField.append(priceLabel, priceInput);
+      grid.append(nameField, priceField);
+
+      const typeField = document.createElement("label");
+      typeField.className = "field";
+      const typeLabel = document.createElement("span");
+      typeLabel.className = "field-label";
+      typeLabel.textContent = "Как делим";
+      const typeSelect = document.createElement("select");
+      typeSelect.className = "field-select item-type-input";
+      const singleOption = document.createElement("option");
+      singleOption.value = "single";
+      singleOption.textContent = "Индивидуальное — один человек";
+      const sharedOption = document.createElement("option");
+      sharedOption.value = "shared";
+      sharedOption.textContent = "Общее — делим между отметившимися";
+      typeSelect.append(singleOption, sharedOption);
+      typeField.append(typeLabel, typeSelect);
+
+      const actions = document.createElement("div");
+      actions.className = "item-form-actions";
+      const remove = button("Удалить позицию", "secondary small-button", () => {
+        row.remove();
+        updateRemoveButtons();
+      });
+      remove.classList.add("remove-item");
+      actions.append(remove);
+
+      row.append(grid, typeField, actions);
+      $("new-items").append(row);
+      updateRemoveButtons();
+    }
+
+    function updateRemoveButtons() {
+      const rows = document.querySelectorAll("[data-item-row]");
+      rows.forEach((row) => {
+        row.querySelector(".remove-item").disabled = rows.length === 1;
+      });
+    }
+
+    function rublesToKopecks(value) {
+      const normalized = value.trim().replace(",", ".");
+      if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
+      const [rubles, kopecks = ""] = normalized.split(".");
+      const amount = Number(rubles) * 100 + Number(kopecks.padEnd(2, "0"));
+      return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
+    }
+
+    $("add-item").addEventListener("click", addItemRow);
+    $("check-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (busy) return;
+      const form = event.currentTarget;
+      if (!form.reportValidity()) return;
+
+      const rows = [...document.querySelectorAll("[data-item-row]")];
+      const items = [];
+      for (let index = 0; index < rows.length; index++) {
+        const row = rows[index];
+        const name = row.querySelector(".item-name-input").value.trim();
+        if (!name) {
+          setCreateMessage(`Укажи название позиции ${index + 1}.`);
+          row.querySelector(".item-name-input").focus();
+          return;
+        }
+        const price = rublesToKopecks(row.querySelector(".item-price-input").value);
+        if (price === null) {
+          setCreateMessage(`Проверь цену позиции ${index + 1}: укажи положительную сумму с точностью до копейки.`);
+          row.querySelector(".item-price-input").focus();
+          return;
+        }
+        items.push({
+          name,
+          price,
+          type: row.querySelector(".item-type-input").value,
+        });
+      }
+
+      busy = true;
+      $("create-submit").disabled = true;
+      $("create-submit").textContent = "Создаём чек…";
+      setCreateMessage("");
+      try {
+        const created = await api("POST", "/checks/", {
+          title: $("check-title").value.trim() || null,
+          payment_info: $("check-payment").value.trim() || null,
+          items,
+        });
+        checkId = String(created.id);
+        history.replaceState({}, "", `${location.pathname}?check=${encodeURIComponent(checkId)}`);
+        busy = false;
+        await load();
+      } catch (error) {
+        setCreateMessage(error.message || "Не удалось создать чек.");
+      } finally {
+        busy = false;
+        $("create-submit").disabled = false;
+        $("create-submit").textContent = "Создать чек";
+      }
+    });
+
+    function setCreateMessage(text = "") {
+      $("create-message").textContent = text;
+      $("create-message").hidden = !text;
+    }
+
+    addItemRow();
     load();
   </script>
 </body>
