@@ -50,6 +50,7 @@
     .amount-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
     .amount { font-size: 24px; font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .payment { overflow-wrap: anywhere; }
+    .invite-link { display: block; margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg); color: var(--accent); font-size: 14px; overflow-wrap: anywhere; word-break: break-word; }
     .actions { display: flex; gap: 8px; margin-top: 12px; }
     .actions button { flex: 1; }
     .person { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
@@ -135,6 +136,9 @@
       <h2 class="section-title">Сводка по чеку</h2>
       <div id="totals"></div>
       <div id="unclaimed" class="empty" hidden>Все блюда распределены</div>
+      <p class="helper" style="margin-top: 14px">Ссылка для друзей</p>
+      <a id="invite-link" class="invite-link" target="_blank" rel="noopener"></a>
+      <div class="actions"><button id="copy-invite-link" class="secondary">Скопировать ссылку</button></div>
       <div class="actions">
         <button id="share-check" class="primary">Поделиться чеком</button>
         <button id="close-check" class="secondary">Закрыть чек</button>
@@ -274,6 +278,9 @@
       $("payment-card").hidden = !showPayment;
       $("payment-info").textContent = me.payment_info || "";
       $("payer-card").hidden = !me.is_payer;
+      const checkLink = `https://t.me/checkspliter_bot/checkspliter?startapp=check_${state.id}`;
+      $("invite-link").href = checkLink;
+      $("invite-link").textContent = checkLink;
       $("close-check").hidden = closed;
       $("close-check").disabled = busy;
       if (me.is_payer && summary) renderPayer(summary);
@@ -344,6 +351,17 @@
         setMessage("Ссылка на чек скопирована. Отправь её друзьям в Telegram.");
       } catch (_) {
         setMessage(`Ссылка на чек: ${checkLink}`);
+      }
+    });
+
+    $("copy-invite-link").addEventListener("click", async () => {
+      const checkLink = $("invite-link").href;
+      try {
+        await navigator.clipboard.writeText(checkLink);
+        $("copy-invite-link").textContent = "Ссылка скопирована";
+        setTimeout(() => { $("copy-invite-link").textContent = "Скопировать ссылку"; }, 1800);
+      } catch (_) {
+        setMessage(`Не получилось скопировать. Ссылка на чек: ${checkLink}`);
       }
     });
 
